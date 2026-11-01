@@ -42,29 +42,8 @@ the exports go here
 **Blank Export**
 [torontoevents_20261101050335.csv](https://github.com/user-attachments/files/34238757/torontoevents_20261101050335.csv)
 "u_location","u_event_id","u_last_updated","u_event_date","u_title","sys_created_on","sys_created_by","sys_tags","sys_updated_on","sys_updated_by","sys_mod_count","sys_id"
-**Populated Export**: 
-[torontoevents_20261101050406.csv](https://github.com/user-attachments/files/34238758/torontoevents_20261101050406.csv)
-"u_location","u_event_id","u_last_updated","u_event_date","u_title","sys_created_on","sys_created_by","sys_tags","sys_updated_on","sys_updated_by","sys_mod_count","sys_id"
-"St. Clair/Silverthorn (Toronto Public Library)","000825649fec44e9b004b31e475cc987","2026-11-01 12:09:36","2026-09-30 14:00:00","Computers for Beginners 3: Use the Internet","2026-11-01 04:18:29","admin","","2026-11-01 04:18:29","admin","0","b11b40e5c3909750310abf0d050131d2"
-"Bar Maaya | Toronto","000c51e47db80e5682c971d3b451fee5","2026-11-01 12:09:29","2026-06-27 12:00:00","**MEN SOLD OUT*?SpeedToronto Dating | Ages  24-38 | Toronto�s  Speed Dating","2026-11-01 04:18:17","admin","","2026-11-01 04:18:17","admin","0","f20b84a5c3909750310abf0d0501319c"
-"Spadina Road (Toronto Public Library)","002145df8de8aa5d3e2787b18d0b360a","2026-11-01 12:09:30","2026-07-16 14:00:00","Drop-In Tech Help","2026-11-01 04:18:19","admin","","2026-11-01 04:18:19","admin","0","670b08a5c3909750310abf0d050131b3"
-"North York Central Library (Toronto Public Library)","002248361ee1df2f0b61fb2673894d4b","2026-11-01 12:09:31","2026-07-24 18:00:00","Introduction to 3D Seed Beading","2026-11-01 04:18:21","admin","","2026-11-01 04:18:21","admin","0","770b48a5c3909750310abf0d05013183"
-"Backroom Comedy Club814 Bloor St W, 								Toronto","0033885dc9cfec0d9cef988eb451cb8c","2026-11-01 12:09:27","2026-06-13 12:00:00","Michael Turner @ Backroom Comedy Club | Limited Run!","2026-11-01 04:18:14","admin","","2026-11-01 04:18:14","admin","0","d20b44a5c3909750310abf0d0501313f"
-"Parkdale (Toronto Public Library)","0034ba7f166830ec5f39cf5b85de87c4","2026-11-01 12:09:29","2026-07-03 11:00:00","Finding Recovery Through Exercise Skills and Hope (FRESH): Drop In Fridays","2026-11-01 04:18:18","admin","","2026-11-01 04:18:18","admin","0","cf0b84a5c3909750310abf0d050131ef"
-"Oakwood Village Library and Arts Centre (Toronto Public Library)","003c49afcde482fd2d1c700593f2b34a","2026-11-01 12:09:30","2026-07-13 18:00:00","Crafting Social Circle","2026-11-01 04:18:19","admin","","2026-11-01 04:18:19","admin","0","570b08a5c3909750310abf0d05013165"
-"Kennedy/Eglinton (Toronto Public Library)","003fc40be1f17adb176130416721a110","2026-11-01 12:09:29","2026-06-25 13:30:00","Knit & Crochet","2026-11-01 04:18:16","admin","","2026-11-01 04:18:16","admin","0","3a0b84a5c3909750310abf0d0501316e"
-"North York Central Library (Toronto Public Library)","0040235ebbf4b1543354c9cd154948a8","2026-11-01 12:09:40","2026-12-02 14:00:00","Your Reputation Is Currency","2026-11-01 04:18:39","admin","","2026-11-01 04:18:39","admin","0","182b48e5c3909750310abf0d05013161"
-"Locke (Toronto Public Library)","00446795ab9f2e11149727af58ae6af4","2026-11-01 12:09:39","2026-11-15 14:00:00","Wellness Recovery Action Plan (WRAP) for Healthy Aging","2026-11-01 04:18:37","admin","","2026-11-01 04:18:37","admin","0","b31bc4e5c3909750310abf0d0501314a"
-"Mount Pleasant (Toronto Public Library)","004473da5ac47962df89f418bd2211c5","2026-11-01 12:09:31","2026-07-23 14:00:00","Against the Odds: The life and times of an accidental politician","2026-11-01 04:18:21","admin","","2026-11-01 04:18:21","admin","0","bf0b48a5c3909750310abf0d05013166"
-"New Toronto (Toronto Public Library)","0046d861dc015d4520d2e5019223d42c","2026-11-01 12:09:26","2026-06-05 14:00:00","Think. Dream. Paint.","2026-11-01 04:18:13","admin","","2026-11-01 04:18:13","admin","0","f50b04a5c3909750310abf0d05013174"
-"S. Walter Stewart (Toronto Public Library)","00490900531d84aa68e429bde8f3567d","2026-11-01 12:09:33","2026-08-24 13:30:00","Investing Basics","2026-11-01 04:18:24","admin","","2026-11-01 04:18:24","admin","0","381bc8a5c3909750310abf0d050131c1"
-"Parliament Street (Toronto Public Library)","0059422426e012f08151a39dfad03e75","2026-11-01 12:09:37","2026-10-17 10:00:00","What is Artificial Intelligence?","2026-11-01 04:18:32","admin","","2026-11-01 04:18:32","admin","0","2a1b04e5c3909750310abf0d0501311e"
-"Parliament Street (Toronto Public Library)","005c077fb7e4a3f2eed497514c8bf31f","2026-11-01 12:09:38","2026-11-07 10:00:00","Technology for Beginners: Using a Cellphone","2026-11-01 04:18:35","admin","","2026-11-01 04:18:35","admin","0","1b1b84e5c3909750310abf0d05013147"
-"Albert Campbell (Toronto Public Library)","0066e277cd2f6decf95d7aa3eb49a74d","2026-11-01 12:09:40","2026-12-16 18:00:00","Building Your Website with WordPress Session 4","2026-11-01 04:18:41","admin","","2026-11-01 04:18:41","admin","0","782b88e5c3909750310abf0d0501315a"
-"Queen/Saulter (Toronto Public Library)","0071e5b0abe33ec897beebf799d404a0","2026-11-01 12:09:30","2026-07-08 13:00:00","Tech Help in English & Cantonese","2026-11-01 04:18:18","admin","","2026-11-01 04:18:18","admin","0","1f0bc4a5c3909750310abf0d050131ea"
-"Malvern (Toronto Public Library)","007b927e630eb09b96988b1b44186da5","2026-11-01 12:09:41","2027-09-17 10:00:00","English Conversation Circle","2026-11-01 04:18:43","admin","","2026-11-01 04:18:43","admin","0","1d2b0ce5c3909750310abf0d05013183"
-"Fort York (Toronto Public Library)","007f506b4c59edacf58bd1fcfc1692a6","2026-11-01 12:09:27","2026-06-11 19:00:00","Toronto Games Week: Secrets of MUDs and MUSHes from a Werewolf Elder","2026-11-01 04:18:14","admin","","2026-11-01 04:18:14","admin","0","8e0b44a5c3909750310abf0d05013123"
-"Richview (Toronto Public Library)","0083e29b66216d3576b46fcdb93eacaf","2026-11-01 12:09:40","2026-12-03 14:00:00","Tech Help","2026-11-01 04:18:39","admin","","2026-11-01 04:18:39","admin","0","502b48e5c3909750310abf0d0501316f"
+
+(see the .csv attachment with records for the export that worked)
 
 
 
