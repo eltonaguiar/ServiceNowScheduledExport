@@ -105,6 +105,37 @@ that saves rework.
 
 Roles: `export_set_admin` to build all of the above, `export_set_scheduler` to own the schedule.
 
+**Fields to fill, step by step** — one line per field, in the order the forms present them. Everything not listed
+here can stay at its default.
+
+| Step | Field | What to put | Notes |
+|---|---|---|---|
+| **1** Export Definition | `Name` | `TorontoEventsFinal_ExportDef` | name it after the table + shape, not the schedule |
+| **1** | `Table` | `u_torontoeventsfinal` | the table the JDBC import fills ([ServiceNowJDBC](https://github.com/eltonaguiar/ServiceNowJDBC)) |
+| **1** | `Fields` | the 12 columns you want | **output order = the order you list them**; that becomes the CSV header |
+| **1** | row filter | empty | add one only for a permanent subset — a filter here silently shrinks every future file |
+| **1** | `Include display value` | per [step 4](#step-4--the-format-decisions-on-the-same-form) | set it here or on the set, but be consistent |
+| **2** Export Target | `Name` | `ExportToWindows11Mid` | one per consumer / retention regime |
+| **2** | `Export target type` | *File on MID Server* | the only type that uses a MID; the others have no MID to fail |
+| **2** | `MID Server` | `win11-mid` | must be **Validated: Yes**, and must see the destination network |
+| **2** | `Path` | `toronto/events` | relative to `agent\export\`, **no leading slash**, folder must already exist |
+| **3** Export Set | `Name` | `TorontoEvents` | |
+| **3** | `Export definition` | the record from step 1 | |
+| **3** | `Export target` | the record from step 2 | |
+| **3** | `File name` | `torontoevents.csv` | the timestamp is appended **before** the extension, in the instance/user time zone |
+| **3** | `Format` | CSV | |
+| **3** | `Append timestamp` | on | off = one file overwritten forever, so a failed run looks fresh |
+| **3** | `Max rows` | `100000` | above ~100 K switch to *Parallel export* instead of raising this |
+| **4** Format | `Delimiter` | `,` | |
+| **4** | `Use display value` | on **or** off, deliberately | display = for humans; raw = for joins. See [§4](#4-every-configuration-option-and-where-to-set-it) |
+| **5** Scheduled Export | `Name` | `ExportTorontoEventsFinal` | |
+| **5** | `Export set` | the record from step 3 | the set holds the shape; the schedule holds the timing |
+| **5** | `Run` | *Daily*, `08:00:00` | pick an hour **after** the JDBC import that fills the table |
+| **5** | `Run as` | a service account | never a person who may leave or lose the role |
+| **5** | `Enable delta export` | on | |
+| **5** | `Delta field` | `sys_updated_on` | `Created` misses every edit; the documented delta limits are in [§5](#5-delta-exports-only-changed-rows) |
+| **5** | conditional / pre-export / post-export scripts | **empty at first** | add them only after the plain schedule has run clean once, so you know what broke |
+
 **The parameters people actually change, and what they cost**
 
 | Change | Effect | Cost |
