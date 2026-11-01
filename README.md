@@ -10,6 +10,7 @@ pushing table rows to a file on a MID Server on a schedule, with delta exports, 
 pre/post scripts — and what to do with those files downstream (Power BI / Qlik).
 
 **Contents**
+0. [Build order — the pages to visit, in order](#a-build-order--the-pages-to-visit-in-order)
 1. [The filename and its timestamp — read this first](#1-the-filename-and-its-timestamp--read-this-first)
 2. [How the four records fit together](#2-how-the-four-records-fit-together)
 3. [The live config in this instance (2026-11-01)](#3-the-live-config-in-this-instance-2026-11-01)
@@ -20,6 +21,56 @@ pre/post scripts — and what to do with those files downstream (Power BI / Qlik
 8. [Feeding Power BI / Qlik Sense — and saving space with deltas](#8-feeding-power-bi--qlik-sense--and-saving-space-with-deltas)
 9. [Troubleshooting](#9-troubleshooting)
 10. [Verifying any of this from the Table API](#10-verifying-any-of-this-from-the-table-api)
+
+---
+
+## A. Build order — the pages to visit, in order
+
+Order matters: the **Export Set** points at an **Export Definition** and an **Export Target**, and the
+**Scheduled Data Export** points at the set. Build bottom-up, and press **Execute Now** before trusting a schedule.
+
+| # | Page (breadcrumb) | What we did | Why it has to be here | Checkpoint |
+|---|---|---|---|---|
+| 1 | **All → System Export Sets → Export Definitions → New** | `TorontoEventsFinal_ExportDef`: table `u_torontoeventsfinal`, 12 fields, no row filter | Everything downstream references it | the field list reads back in CSV header order |
+| 2 | **All → System Export Sets → Export Targets → New** | `ExportToWindows11Mid`: method *File on MID Server*, MID `win11-mid`, path `toronto/events` | the set needs a destination | `<MID>\agent\export\toronto\events\` exists and is writable by the MID |
+| 3 | **All → System Export Sets → Create Export Set** | `TorontoEvents`, file name `torontoevents.csv`, CSV, *Append timestamp* on, *Max rows* 100 000 | binds (1) + (2) and decides the file shape | **Execute Now** drops a file |
+| 4 | (same form) format / timestamp / rows / display values | see [§4](#4-every-configuration-option-and-where-to-set-it) for each field's effect | these decide what BI has to parse | header = field names, cells = display values |
+| 5 | **All → System Export Sets → Administration → Scheduled Exports → New** | `ExportTorontoEventsFinal`: daily 08:00, Run as, delta on `sys_updated_on`, scripts off | the schedule adds time + delta + scripts | *Last export scheduled run* advances |
+| 6 | Export Set form → **Execute Now** | first full run | smoke test before scheduling | file bigger than the header; history row `completed` |
+| 7 | **All → System Export Sets → Export Log** | read the messages | the only place that names the MID and the transfer | `Transferred torontoevents.csv to the MID Server 'win11-mid'` |
+
+Roles: `export_set_admin` to build all of the above, `export_set_scheduler` to own the schedule.
+
+**The parameters people actually change, and what they cost**
+
+| Change | Effect | Cost |
+|---|---|---|
+| *Max rows* up | one bigger file instead of silent truncation | instance render time + MID memory; above ~100 K rows use *Parallel export* |
+| *Append timestamp* off | one file, overwritten each run | no per-run history; a failed run leaves yesterday's file looking current |
+| *Use display value* on | human-readable cells | breaks joins in BI and shifts with language/ACL |
+| Delta on | tiny files, only changed rows | you inherit a watermark and the "empty file" behaviour |
+| Conditional on | no files when nothing changed | one more script to debug |
+| Time zone (instance/user) | the filename stamp matches your clock | DST moves the offset twice a year |
+
+**Validation, end to end** — these numbers are real on this instance (172 B empty delta, 2,128,595 B full):
+
+```bash
+# 1 is there a run, and how big was the payload?
+curl -s -u "$SN_USER:$SN_PASS" -H 'Accept: application/json' \
+  "https://<instance>.service-now.com/api/now/table/sys_export_set_run?sysparm_limit=3&sysparm_fields=number,state,sys_created_on,completed,attachment_size"
+
+# 2 did the file land?
+ls -l "/c/ServiceNow/MID/agent/export/toronto/events/"        # Windows: dir "C:\ServiceNow\MID\agent\export\toronto\events"
+
+# 3 does the header match the export definition's field list?
+head -1 torontoevents_*.csv
+
+# 4 is the delta watermark moving?
+curl -s -u "$SN_USER:$SN_PASS" -H 'Accept: application/json' \
+  "https://<instance>.service-now.com/api/now/table/scheduled_data_export?sysparm_fields=name,last_export_run,enable_delta_export"
+```
+
+If (1) says `completed` but (2) shows nothing, the fault is the target/MID, not the export — see [§9](#9-troubleshooting).
 
 ---
 
@@ -336,6 +387,29 @@ Because both scripts run **inside** the schedule, they are also the right place 
 
 ## 7. Recipes people actually use
 
+### When to use export sets — and when not
+
+**Use them when**
+
+- the consumer wants a **file**: a shared folder, SFTP drop, Power BI folder connector, Qlik folder data connection, or an Excel user who will never use an API;
+- you want **zero API load on the instance** from BI refreshes — the export runs once, the BI tool re-reads a file;
+- you need **scheduled snapshots** for audit or reconciliation ("what did this look like last Tuesday?");
+- the rows must be **display values** (labels, choice text) for humans;
+- the destination sits **behind a firewall** where a MID already exists but the BI server has no OAuth/REST path.
+
+**Don't use them when**
+
+- you need **near-real-time** (minutes, not hours) → REST / IntegrationHub / Remote Tables;
+- the payload includes **attachments or binaries** — export sets do not export attachments (documented);
+- the source is a **database view** and you want delta — not supported (no `sys_updated_on` to compare);
+- you need **per-row authorisation** — an export runs as one user and writes everything that user can read;
+- there is **no MID Server** (export sets require one, non-clustered, Geneva or later);
+- the consumer only reads **JSON/XML** — this is a flat-file mechanism.
+
+Rule of thumb: export sets are a **bulk egress** tool. For sync-into-BI, delta + watermark is the cheapest thing that
+works; for anything event-driven, use an API.
+
+
 ### 1. Rename to a predictable, sortable name (and keep a stable "latest" copy)
 
 Run on the MID/Windows host (Task Scheduler, every 5 minutes), not in a ServiceNow script:
@@ -510,6 +584,52 @@ Rule of thumb: **delta for freshness, full for truth**. Weekly full + daily delt
 full-accuracy data at roughly 1–2 % of the bytes.
 
 ---
+
+### Alternatives for Qlik Sense — loading only the deltas
+
+Export sets are one of five ways to get ServiceNow rows into Qlik while still loading only what changed. All five need
+the same two things: a **watermark** (`sys_updated_on`, stored in the app) and **a story for deletes**.
+
+| # | Route | How "updated only" works | Cost / caveat |
+|---|---|---|---|
+| 1 | **Export set + delta** (this repo) | ServiceNow filters via `last_export_run`; Qlik reads the newest file(s) | needs a MID + file access; no deletes; one run's latency |
+| 2 | **REST Table API from Qlik** (REST connector or a script) | you send `sys_updated_on>=<stored watermark>`, page with `sysparm_offset` / `sysparm_limit` | no MID; mind API limits and page size; store the watermark in a QVD |
+| 3 | **Remote Table / Data Stream** (IntegrationHub, licensed) | ServiceNow pushes changed rows to a target DB as they change | cleanest and fastest; needs the plugin, an external DB, credit spend |
+| 4 | **JDBC/ODBC driver in Qlik** (CData / Progress / DataDirect) | Qlik sends `WHERE sys_updated_on >= '$(vWatermark)'`; the driver translates to REST | licence cost; hits the same API limits underneath |
+| 5 | **Export set → MID → loader → DB** (file watcher runs `LOAD DATA`) | the DB does the incremental merge; Qlik reads the DB | most moving parts; good if a warehouse already ingests files |
+
+**The Qlik pattern that works for all of them** — incremental QVD, never a full reload:
+
+```qlik
+// keep the watermark in the QVD so it survives reloads
+Watermark:
+LOAD Timestamp(max(sys_updated_on)) AS wm RESIDENT Incident;
+LET vWm = peek('wm', 0, 'Watermark');
+
+DeltaRaw:
+LOAD * FROM [lib://SNExport/torontoevents_delta*.csv]
+    (txt, codepage is 1252, embedded labels, delimiter is ',', msq);
+
+Delta:
+NoConcatenate LOAD *, Timestamp#(sys_updated_on,'YYYY-MM-DD hh:mm:ss') AS upd RESIDENT DeltaRaw
+WHERE Timestamp#(sys_updated_on,'YYYY-MM-DD hh:mm:ss') >= '$(vWm)';
+
+Concatenate(Incident)
+LOAD * RESIDENT Delta WHERE NOT Exists(sys_id);
+
+DROP TABLES DeltaRaw, Delta, Watermark;
+STORE Incident INTO [lib://QVD/incident.qvd] (qvd);
+```
+
+Practical rules for a delta-only feed:
+
+- **Overlap the watermark** 10–15 minutes and dedupe on `sys_id`, so a row committed on the boundary is not lost.
+- **Deltas never show deletes.** Either re-load a small full slice periodically (weekly), or add an explicit
+  `active`/soft-delete column so a deleted row still *arrives* as changed.
+- **`sys_updated_on` is UTC in the API** but a display time zone in the UI — normalise once, at load.
+- The **first load must be a full export**; incremental-from-empty gives a partial history that looks complete.
+- If the delta chain breaks (instance refreshed, watermark cleared) do not patch it: clear *Last export scheduled run*
+  on the ServiceNow side, run one full, rebuild the QVD once.
 
 ## 9. Troubleshooting
 
