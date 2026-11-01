@@ -28,16 +28,80 @@ pre/post scripts — and what to do with those files downstream (Power BI / Qlik
 
 Order matters: the **Export Set** points at an **Export Definition** and an **Export Target**, and the
 **Scheduled Data Export** points at the set. Build bottom-up, and press **Execute Now** before trusting a schedule.
+Each step below is one page to stand on, with what to have ready first, the fields to fill, and the one suggestion
+that saves rework.
 
-| # | Page (breadcrumb) | What we did | Why it has to be here | Checkpoint |
-|---|---|---|---|---|
-| 1 | **All → System Export Sets → Export Definitions → New** | `TorontoEventsFinal_ExportDef`: table `u_torontoeventsfinal`, 12 fields, no row filter | Everything downstream references it | the field list reads back in CSV header order |
-| 2 | **All → System Export Sets → Export Targets → New** | `ExportToWindows11Mid`: method *File on MID Server*, MID `win11-mid`, path `toronto/events` | the set needs a destination | `<MID>\agent\export\toronto\events\` exists and is writable by the MID |
-| 3 | **All → System Export Sets → Create Export Set** | `TorontoEvents`, file name `torontoevents.csv`, CSV, *Append timestamp* on, *Max rows* 100 000 | binds (1) + (2) and decides the file shape | **Execute Now** drops a file |
-| 4 | (same form) format / timestamp / rows / display values | see [§4](#4-every-configuration-option-and-where-to-set-it) for each field's effect | these decide what BI has to parse | header = field names, cells = display values |
-| 5 | **All → System Export Sets → Administration → Scheduled Exports → New** | `ExportTorontoEventsFinal`: daily 08:00, Run as, delta on `sys_updated_on`, scripts off | the schedule adds time + delta + scripts | *Last export scheduled run* advances |
-| 6 | Export Set form → **Execute Now** | first full run | smoke test before scheduling | file bigger than the header; history row `completed` |
-| 7 | **All → System Export Sets → Export Log** | read the messages | the only place that names the MID and the transfer | `Transferred torontoevents.csv to the MID Server 'win11-mid'` |
+### Step 1 — Export Definition
+> **Breadcrumb:** `All → System Export Sets → Export Definitions → New`
+
+- **Prerequisite:** the source table exists and has rows (`u_torontoeventsfinal`, filled by
+  [ServiceNowJDBC](https://github.com/eltonaguiar/ServiceNowJDBC)); role `export_set_admin`.
+- **Fields to fill:** `Name` = `TorontoEventsFinal_ExportDef` · `Table` = `u_torontoeventsfinal` · `Fields` = the 12
+  columns you want, **in output order** · leave the row filter empty for a whole-table extract.
+- **Suggestion:** one definition per *file shape*, not per schedule. If a consumer needs different columns, clone the
+  record — editing it in place leaves you a perfectly valid file with the wrong columns.
+- **Checkpoint:** the field list reads back in the same order as the CSV header.
+
+### Step 2 — Export Target
+> **Breadcrumb:** `All → System Export Sets → Export Targets → New`
+
+- **Prerequisite:** a MID Server that is **Validated: Yes** and is on the network that can see the destination
+  ([ServiceNowMidServer](https://github.com/eltonaguiar/ServiceNowMidServer)); the folder must already exist under the
+  MID's `agent\export\` and be writable.
+- **Fields to fill:** `Name` = `ExportToWindows11Mid` · `Export target type` = *File on MID Server* ·
+  `MID Server` = `win11-mid` · `Path` = `toronto/events` (relative to `agent\export\`, no leading slash).
+- **Suggestion:** one target per consumer and per retention regime (`toronto/events/bi/`, `toronto/events/archive/`) —
+  it is the cheapest way to give BI a clean folder it can watch.
+- **Checkpoint:** `agent\export\toronto\events\` exists on the MID and the MID user can write to it.
+
+### Step 3 — Export Set
+> **Breadcrumb:** `All → System Export Sets → Create Export Set`
+
+- **Prerequisite:** steps 1 and 2 finished.
+- **Fields to fill:** `Name` = `TorontoEvents` · `Export definition` = step 1 · `Export target` = step 2 ·
+  `File name` = `torontoevents.csv` · `Format` = CSV · `Append timestamp` = on · `Max rows` = `100000`.
+- **Suggestion:** keep *Append timestamp* on. The cost is a file per run; the benefit is that a failed run cannot
+  masquerade as a fresh one.
+- **Checkpoint:** **Execute Now** produces a file.
+
+### Step 4 — the format decisions on the same form
+> **Breadcrumb:** same Export Set form, lower half
+
+- **Prerequisite:** step 3 saved.
+- **Fields to fill:** `Delimiter` = `,` · `Use display value` = on/off **deliberately** · `Max rows` (see
+  [§4](#4-every-configuration-option-and-where-to-set-it) for every option's effect).
+- **Suggestion:** machine consumers want raw values (`sys_id`, choice *values*); humans want display values. Decide
+  which this file is for — mixing the two is what breaks joins downstream.
+- **Checkpoint:** header = field names; cells = the format you chose.
+
+### Step 5 — Scheduled Data Export
+> **Breadcrumb:** `All → System Export Sets → Administration → Scheduled Exports → New`
+
+- **Prerequisite:** a manual *Execute Now* has succeeded — never schedule something you have not seen work once.
+- **Fields to fill:** `Name` = `ExportTorontoEventsFinal` · `Export set` = step 3 · `Run` = daily `08:00:00` ·
+  `Run as` = a service account (not a person who will leave) · `Enable delta export` = on · `Delta field` =
+  `sys_updated_on` · leave the conditional / pre / post scripts **empty** for now.
+- **Suggestion:** add the scripts only after the plain schedule has run cleanly at least once, so you know which part
+  failed; see [§6](#6-scripts-conditional-pre-export-post-export) for what each hook can and cannot do.
+- **Checkpoint:** *Last export scheduled run* advances.
+
+### Step 6 — Execute Now (smoke test)
+> **Breadcrumb:** Export Set form → **Execute Now**
+
+- **Prerequisite:** step 5 saved (the schedule carries the delta settings, the set carries the shape).
+- **Fields to fill:** none.
+- **Suggestion:** run it **twice**. The first run is a full extract; the second shows you what a delta looks like
+  (usually a header-only file) before a schedule surprises you at 08:00.
+- **Checkpoint:** file bigger than the header; history row `completed`.
+
+### Step 7 — Export Log
+> **Breadcrumb:** `All → System Export Sets → Export Log`
+
+- **Prerequisite:** at least one run.
+- **Fields to fill:** none — this is read-only.
+- **Suggestion:** check here **first** whenever a file is missing: it names the MID and the transfer, so it separates
+  "never generated" from "generated but never delivered".
+- **Checkpoint:** `Transferred torontoevents.csv to the MID Server 'win11-mid'`.
 
 Roles: `export_set_admin` to build all of the above, `export_set_scheduler` to own the schedule.
 
