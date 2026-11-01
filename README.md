@@ -9,6 +9,24 @@ Working notes + reference for **ServiceNow Export Sets** (System Export Sets →
 pushing table rows to a file on a MID Server on a schedule, with delta exports, conditional runs and
 pre/post scripts — and what to do with those files downstream (Power BI / Qlik).
 
+## Before you start — prerequisites checklist
+
+Tick these off before step 1. Everything here is a hard prerequisite unless marked optional — the common
+failures are a missing item from this list, not a step done wrong.
+
+- [ ] Role **`export_set_admin`** — and `export_set_scheduler` if someone else will own the schedule
+- [ ] A **MID Server** showing *Validated: Yes*. Export sets cannot run without one, and they are **not supported on
+      clustered MIDs** → [ServiceNowMidServer](https://github.com/eltonaguiar/ServiceNowMidServer)
+- [ ] The source table exists **and has rows** — `u_torontoeventsfinal`, filled in by
+      [ServiceNowJDBC](https://github.com/eltonaguiar/ServiceNowJDBC)
+- [ ] The destination folder exists under `<MID install>\agent\export\` (e.g. `toronto\events\`) and the MID user can
+      write to it — export sets do not create directories
+- [ ] Time zone decided: `glide.sys.default.tz` **or** the run-as user's *Time zone*. It decides the
+      `_yyyyMMddHHmmss` stamp in every filename
+- [ ] Known consumer and its value format: **display values** (humans, Excel) or **raw values** (BI joins)
+
+---
+
 **Contents**
 0. [Build order — the pages to visit, in order](#a-build-order--the-pages-to-visit-in-order)
 1. [The filename and its timestamp — read this first](#1-the-filename-and-its-timestamp--read-this-first)
