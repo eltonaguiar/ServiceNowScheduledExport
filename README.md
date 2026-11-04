@@ -462,36 +462,86 @@ no 172-byte file appears. Keep the query cheap: an indexed field (`sys_updated_o
 })();
 ```
 
-### Post-export script — audit, notify, chain the next step
+### Post-export script — audit the run and POST a real summary
+
+The post-export script runs inside the export schedule, so it can read the run it just produced and send a
+summary somewhere real. This example POSTs JSON through a REST Message named **`Export Audit`** to
+`httpbin.org/post` — a public echo endpoint — so the round trip is provable before you point the same REST
+Message at your own collector.
+
+**The REST Message** (System Web Services → Outbound → REST Message):
+
+| Field | Value |
+|---|---|
+| Name | `Export Audit` |
+| Endpoint | `https://httpbin.org/` |
+| Authentication | none — set it here if your collector needs it, and leave the method on *inherit from parent* |
+| HTTP method name | `postRunSummary` |
+| Method / path | `POST` → `/post` |
+| Headers | `Content-Type: application/json` · `Accept: application/json` |
+| Body | `${payload}` |
 
 ```js
-// Record what was produced and tell a human when it's abnormal.
 (function () {
-  var set = new GlideRecord('sys_export_set');
-  if (!set.get('b3b0d82dc3d09750310abf0d05013149')) {   // this export set
-    return;
-  }
-  // Most recent run for this set
+  var SET_SYS_ID = 'b3b0d82dc3d09750310abf0d05013149';   // this export set
+
   var run = new GlideRecord('sys_export_set_run');
-  run.addQuery('set', set.getUniqueValue());
+  run.addQuery('set', SET_SYS_ID);
   run.orderByDescending('sys_created_on');
   run.setLimit(1);
   run.query();
   if (!run.next()) {
     return;
   }
-  var size = parseInt(run.getValue('attachment_size') || '0', 10);
-  gs.info('[ExportTorontoEventsFinal] post-export: ' + run.getValue('number') +
-          ' size=' + size + 'B state=' + run.getValue('state'));
 
-  if (size < 300) {                                    // header-only / suspiciously small
-    var rm = new RESTMessageV2('Teams - Alerts', 'postMessage');
-    rm.setStringParameterNoEscape('text',
-      'Events export produced a header-only file (' + run.getValue('number') + ').');
-    rm.execute();
+  var bytes = parseInt(run.getValue('attachment_size') || '0', 10);
+  var summary = {
+    set: 'torontoevents.csv',
+    run: run.getValue('number'),
+    state: run.getValue('state'),
+    bytes: bytes,
+    header_only: bytes < 300,                            // header-only / suspiciously small
+    at: new GlideDateTime().getValue()
+  };
+
+  var rm = new sn_ws.RESTMessageV2('Export Audit', 'postRunSummary');
+  rm.setStringParameterNoEscape('payload', JSON.stringify(summary));
+
+  var resp = rm.execute();
+  var status = resp.getStatusCode();
+
+  if (status === 200 || status === 201 || status === 204) {
+    gs.info('[ExportTorontoEventsFinal] audit POST ok HTTP ' + status + ' body=' + resp.getBody());
+  } else {
+    gs.error('[ExportTorontoEventsFinal] audit POST failed HTTP ' + status + ' body=' + resp.getBody());
   }
 })();
 ```
+
+**Verify the round trip in two minutes.** Run the post-export script from the export set record, then check
+System Log → All. A working call logs
+
+```
+[ExportTorontoEventsFinal] audit POST ok HTTP 200 body={"args":{},"data":"{...}","json":{"bytes":48213,"run":"EXP0001001","set":"torontoevents.csv"},...}
+```
+
+The `json` object in the echoed body is your own payload — that is the proof the POST carried it, and it is
+visible in one log line with no external account involved. `httpbin.org` answers 200 when the POST arrives;
+a non-2xx status in that log line means the call itself failed.
+
+**Retargeting it at something useful** — same REST Message, change the endpoint and, if needed, the auth on
+the message:
+
+- **Slack incoming webhook**: POST `{"text": "…"}`; the secret lives in the URL, so no auth field needed.
+- **Teams**: current options are a Workflows/Adaptive Card webhook (the legacy Office 365 connector is retired) —
+  the payload schema is Teams-specific, so keep a separate REST Message rather than editing the audit one.
+- **Your own collector**: add basic auth or an auth profile *on the REST Message*; leave the method on
+  *inherit from parent*.
+- **Outbound internet blocked from the instance?** Tick **Use MID Server** on the REST Message and the call
+  leaves through `win11-mid`, exactly like the export itself.
+
+In a scoped script the class is `sn_ws.RESTMessageV2` (what is written above); global scripts may also use
+`RESTMessageV2`. Both resolve to the same API — use the scoped name and the snippet works in either scope.
 
 Because both scripts run **inside** the schedule, they are also the right place to write an audit row
 (`u_export_audit`: set, run number, size, timestamp) so dashboards can graph export health instead of guessing.
